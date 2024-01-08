@@ -1,17 +1,18 @@
 import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { MessageController } from './producer.controller';
+import { QUEUE_NAME, REDIS_HOST, REDIS_PORT } from '../common/constants';
 
 @Module({
   imports: [
     BullModule.forRoot({
       redis: {
-        host: 'redis',
-        port: 6379,
+        host: REDIS_HOST,
+        port: REDIS_PORT,
       },
     }),
     BullModule.registerQueue({
-      name: 'message_queue',
+      name: QUEUE_NAME,
     }),
   ],
   controllers: [MessageController],
