@@ -1,7 +1,7 @@
 services:
   producer:
     container_name: producer
-    command: node dist/producer.main.js
+    command: npm run start:producer
     ports:
       - "3000:3000"
     restart: always
@@ -11,20 +11,16 @@ services:
       - ./src:/app/src
     depends_on:
       - redis
-    env_file:
-      - .env
 
   consumer:
     container_name: consumer
-    command: node dist/consumer.main.js
+    command: npm run start:consumer
     build:
       dockerfile: Dockerfile
     volumes:
       - ./src:/app/src
     depends_on:
       - redis
-    env_file:
-      - .env
 
   redis:
     container_name: redis
