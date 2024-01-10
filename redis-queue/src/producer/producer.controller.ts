@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bull';
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Post, Body } from '@nestjs/common';
 import { Queue } from 'bull';
 import { JOB_NAME, QUEUE_NAME } from '../common/constants';
 
@@ -7,10 +7,10 @@ import { JOB_NAME, QUEUE_NAME } from '../common/constants';
 export class MessageController {
   constructor(@InjectQueue(QUEUE_NAME) private readonly messageQueue: Queue) {}
 
-  @Get()
-  async sendMessage() {
+  @Post()
+  async sendMessage(@Body() body: { message }) {
     await this.messageQueue.add(JOB_NAME, {
-      message: 'test message',
+      message: body.message || 'Hello world!',
     });
 
     return 'OK';
