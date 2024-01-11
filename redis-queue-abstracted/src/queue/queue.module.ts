@@ -2,6 +2,8 @@ import { BullModule } from '@nestjs/bull';
 import { Module, OnModuleInit } from '@nestjs/common';
 import { REDIS_HOST, REDIS_PORT, QUEUE_NAME } from '../common/constants';
 import { QueueConsumer } from './queue.consumer';
+import { QueueService } from './queue.service';
+import { BullQueueService } from './bull/bull.queue.service';
 
 @Module({})
 export class QueueModule implements OnModuleInit {
@@ -11,7 +13,6 @@ export class QueueModule implements OnModuleInit {
 
     // register handlers if was initialized as consumer
     this.queueConsumer.registerHandler({
-      queueName: QUEUE_NAME,
       messageName: 'message',
       handler: (message) => {
         console.log('message', message);
@@ -20,6 +21,7 @@ export class QueueModule implements OnModuleInit {
   }
 
   // add async startup
+  // add options
   static forRoot() {
     // TODO: dynamically register queue names
     // queues might be registered with processors if queue module is registered as consumer
@@ -27,9 +29,6 @@ export class QueueModule implements OnModuleInit {
     // when started with queue names as producer, should provide queue services
     // maybe create some decorator to inject right function, that is provided by generated token using queue name
     // then this function should have queue injected here
-
-    // do this only if module is registered as consumer
-    const queueConsumer = new QueueConsumer();
 
     return {
       module: QueueModule,
@@ -42,23 +41,13 @@ export class QueueModule implements OnModuleInit {
         }),
         BullModule.registerQueue({
           name: QUEUE_NAME,
-          // do this only if module is registered as consumer
-          processors: [
-            {
-              callback: (job) => {
-                queueConsumer.processMessageOnHandlers(
-                  job.queue.name,
-                  job.data,
-                );
-              },
-            },
-          ],
         }),
       ],
       providers: [
+        // only add to providers if module is registered as producer
         {
-          provide: QueueConsumer,
-          useValue: queueConsumer,
+          provide: QueueService,
+          useClass: BullQueueService,
         },
       ],
       exports: [BullModule],
