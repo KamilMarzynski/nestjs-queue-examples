@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MessageController } from './producer.controller';
-import { QueueModule } from '../queue/queue.module';
+import { MessagingModule } from '../messaging/messaging.module';
 
 @Module({
-  imports: [QueueModule.forRoot()],
+  imports: [MessagingModule.forRoot()],
   controllers: [MessageController],
 })
 export class ProducerModule {}

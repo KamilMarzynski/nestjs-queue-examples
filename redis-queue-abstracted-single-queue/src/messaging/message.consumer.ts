@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class QueueConsumer {
+export class MessageConsumer {
   private handlers: Record<string, ((...args) => Promise<any>)[]> = {};
 
   public registerHandler({ messageName, handler }) {

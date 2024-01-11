@@ -2,6 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { Message } from './types';
 
 @Injectable()
-export abstract class QueueService {
+export abstract class MessagingService {
   abstract add<T>(message: Message<T>): Promise<void>;
 }

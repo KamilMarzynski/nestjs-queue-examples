@@ -1,18 +1,18 @@
 import { BullModule } from '@nestjs/bull';
 import { Module, OnModuleInit } from '@nestjs/common';
 import { REDIS_HOST, REDIS_PORT, QUEUE_NAME } from '../common/constants';
-import { QueueConsumer } from './queue.consumer';
-import { QueueService } from './queue.service';
-import { BullQueueService } from './bull/bull.queue.service';
+import { MessageConsumer } from './message.consumer';
+import { MessagingService } from './messaging.service';
+import { BullMessagingService } from './bull/bull.queue.service';
 
 @Module({})
-export class QueueModule implements OnModuleInit {
-  constructor(private readonly queueConsumer: QueueConsumer) {}
+export class MessagingModule implements OnModuleInit {
+  constructor(private readonly messageConsumer: MessageConsumer) {}
   onModuleInit() {
     console.log('QueueModule has been initialized.');
 
     // register handlers if was initialized as consumer
-    this.queueConsumer.registerHandler({
+    this.messageConsumer.registerHandler({
       messageName: 'message',
       handler: (message) => {
         console.log('message', message);
@@ -31,7 +31,7 @@ export class QueueModule implements OnModuleInit {
     // then this function should have queue injected here
 
     return {
-      module: QueueModule,
+      module: MessagingModule,
       imports: [
         BullModule.forRoot({
           redis: {
@@ -46,11 +46,11 @@ export class QueueModule implements OnModuleInit {
       providers: [
         // only add to providers if module is registered as producer
         {
-          provide: QueueService,
-          useClass: BullQueueService,
+          provide: MessagingService,
+          useClass: BullMessagingService,
         },
       ],
-      exports: [BullModule],
+      exports: [MessagingService],
     };
   }
 }

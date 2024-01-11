@@ -1,10 +1,12 @@
 import { InjectQueue } from '@nestjs/bull';
+import { Injectable } from '@nestjs/common';
 import { Queue } from 'bull';
 import { QUEUE_NAME } from '../../common/constants';
-import { QueueService } from '../queue.service';
+import { MessagingService } from '../messaging.service';
 import { Message } from '../types';
 
-export class BullQueueService extends QueueService {
+@Injectable()
+export class BullMessagingService extends MessagingService {
   //   private queue1;
   constructor(@InjectQueue(QUEUE_NAME) private readonly queue: Queue) {
     super();
