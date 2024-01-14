@@ -5,6 +5,11 @@ import { MessageConsumer } from './message.consumer';
 import { MessagingService } from './messaging.service';
 import { BullMessagingService } from './bull/bull.queue.service';
 
+export type MessagingModuleOptions = {
+  type: ('producer' | 'consumer')[];
+  connectionUrl: `redis://${string}:${string}`;
+};
+
 @Module({})
 export class MessagingModule implements OnModuleInit {
   constructor(private readonly messageConsumer: MessageConsumer) {}
@@ -22,7 +27,7 @@ export class MessagingModule implements OnModuleInit {
 
   // add async startup
   // add options
-  static forRoot() {
+  static forRoot(options: MessagingModuleOptions) {
     // TODO: dynamically register queue names
     // queues might be registered with processors if queue module is registered as consumer
     // add some way of providing queue services dynamically
