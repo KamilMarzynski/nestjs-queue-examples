@@ -12,12 +12,12 @@ export class MessageConsumer {
   }
 
   public async processMessageOnHandlers(message: any) {
-    const handlers = this.handlers[message];
+    const handlers = this.handlers[message.name];
     if (!handlers) {
       return;
     }
     handlers.forEach((handler) => {
-      handler(message);
+      handler(message.data);
     });
   }
 }

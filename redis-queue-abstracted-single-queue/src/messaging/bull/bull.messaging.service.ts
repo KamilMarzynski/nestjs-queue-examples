@@ -7,13 +7,11 @@ import { Message } from '../types';
 
 @Injectable()
 export class BullMessagingService extends MessagingService {
-  //   private queue1;
   constructor(@InjectQueue(QUEUE_NAME) private readonly queue: Queue) {
     super();
-    // this might be used to create multiple queues based on some config
-    // this.queue1 = new Bull(QUEUE_NAME);
   }
   async add<T>(message: Message<T>) {
+    console.log('Adding message to queue', message);
     await this.queue.add({
       name: message.name,
       data: message.data,

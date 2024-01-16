@@ -4,7 +4,7 @@ import { MessagingModule } from '../messaging/messaging.module';
 @Module({
   imports: [
     MessagingModule.forRoot({
-      type: ['consumer'],
+      mode: ['consumer'],
       connectionUrl: 'redis://redis:6379',
     }),
   ],

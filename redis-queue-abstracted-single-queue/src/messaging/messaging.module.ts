@@ -1,61 +1,87 @@
 import { BullModule } from '@nestjs/bull';
-import { Module, OnModuleInit } from '@nestjs/common';
-import { REDIS_HOST, REDIS_PORT, QUEUE_NAME } from '../common/constants';
+import { Inject, Module, OnModuleInit } from '@nestjs/common';
+import { QUEUE_NAME } from '../common/constants';
+import { BullMessageConsumer } from './bull/bull.queue.consumer';
+import { BullMessagingService } from './bull/bull.messaging.service';
 import { MessageConsumer } from './message.consumer';
 import { MessagingService } from './messaging.service';
-import { BullMessagingService } from './bull/bull.queue.service';
+import { DiscoveryModule, DiscoveryService } from '@nestjs/core';
 
 export type MessagingModuleOptions = {
-  type: ('producer' | 'consumer')[];
+  mode: ('producer' | 'consumer')[];
   connectionUrl: `redis://${string}:${string}`;
 };
 
 @Module({})
 export class MessagingModule implements OnModuleInit {
-  constructor(private readonly messageConsumer: MessageConsumer) {}
+  constructor(@Inject('QUEUE_MODE') private readonly queueMode: string[]) {}
+
   onModuleInit() {
     console.log('QueueModule has been initialized.');
+    console.log(this.queueMode);
 
-    // register handlers if was initialized as consumer
-    this.messageConsumer.registerHandler({
-      messageName: 'message',
-      handler: (message) => {
-        console.log('message', message);
-      },
-    });
+    // if (this.queueMode.includes('consumer')) {
+    //   consumerInstance.registerHandler({
+    //     messageName: 'message',
+    //     handler: (message) => {
+    //       console.log('message', message);
+    //     },
+    //   });
+    // }
   }
 
   // add async startup
-  // add options
   static forRoot(options: MessagingModuleOptions) {
-    // TODO: dynamically register queue names
-    // queues might be registered with processors if queue module is registered as consumer
-    // add some way of providing queue services dynamically
-    // when started with queue names as producer, should provide queue services
-    // maybe create some decorator to inject right function, that is provided by generated token using queue name
-    // then this function should have queue injected here
+    const url = options.connectionUrl.split('redis://')[1];
+    const host = url.split(':')[0];
+    const port = url.split(':')[1];
+
+    const providers = [];
+    const exports = [];
+
+    if (options.mode.includes('producer')) {
+      providers.push({
+        provide: MessagingService,
+        useClass: BullMessagingService,
+      });
+
+      exports.push(MessagingService);
+    }
+
+    if (options.mode.includes('consumer')) {
+      providers.push({
+        provide: MessageConsumer,
+        useClass: BullMessageConsumer,
+      });
+      providers.push({
+        provide: 'INTERNAL_TOKEN_QUEUE_CONSUMER',
+        useValue: BullMessageConsumer,
+      });
+
+      exports.push(MessageConsumer);
+    }
+
+    providers.push({
+      provide: 'QUEUE_MODE',
+      useValue: options.mode,
+    });
 
     return {
       module: MessagingModule,
       imports: [
+        DiscoveryModule,
         BullModule.forRoot({
           redis: {
-            host: REDIS_HOST,
-            port: REDIS_PORT,
+            host,
+            port: parseInt(port, 10),
           },
         }),
         BullModule.registerQueue({
           name: QUEUE_NAME,
         }),
       ],
-      providers: [
-        // only add to providers if module is registered as producer
-        {
-          provide: MessagingService,
-          useClass: BullMessagingService,
-        },
-      ],
-      exports: [MessagingService],
+      providers: [...providers],
+      exports: [...exports],
     };
   }
 }
