@@ -1,5 +1,6 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { MessagingService } from '../messaging/messaging.service';
+import { TestMessage } from 'src/common/test.message';
 
 @Controller('message')
 export class MessageController {
@@ -7,10 +8,7 @@ export class MessageController {
 
   @Post()
   async sendMessage(@Body() body: { message }) {
-    await this.messagingService.add({
-      name: 'message',
-      data: body.message || 'Hello world!',
-    });
+    await this.messagingService.add(new TestMessage({ test: body.message }));
 
     return 'OK';
   }
