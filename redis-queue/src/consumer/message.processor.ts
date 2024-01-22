@@ -9,7 +9,6 @@ export class MessageProcessor {
 
   @Process(JOB_NAME)
   handleMessage(job: Job) {
-    console.log(job.data);
     this.logger.log('received message: ' + job.data.message);
   }
 }
