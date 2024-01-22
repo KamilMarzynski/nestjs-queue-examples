@@ -9,7 +9,6 @@ import { MessageConsumer } from '../message.consumer';
 export class BullMessageConsumer extends MessageConsumer {
   @Process()
   async handleMessage(job: Job) {
-    console.log('Received message' + job.data);
     await this.processMessageOnHandlers(job.data);
   }
 }

@@ -1,11 +1,9 @@
 import { BullModule } from '@nestjs/bull';
-import { Inject, Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { QUEUE_NAME } from '../common/constants';
-import { BullMessageConsumer } from './bull/bull.queue.consumer';
 import { BullMessagingService } from './bull/bull.messaging.service';
-import { MessageConsumer } from './message.consumer';
 import { MessagingService } from './messaging.service';
-import { DiscoveryModule, DiscoveryService } from '@nestjs/core';
+import { MessagingConsumerModule } from './messaging.consumer.module';
 
 export type MessagingModuleOptions = {
   mode: ('producer' | 'consumer')[];
@@ -13,24 +11,7 @@ export type MessagingModuleOptions = {
 };
 
 @Module({})
-export class MessagingModule implements OnModuleInit {
-  constructor(@Inject('QUEUE_MODE') private readonly queueMode: string[]) {}
-
-  onModuleInit() {
-    console.log('QueueModule has been initialized.');
-    console.log(this.queueMode);
-
-    // if (this.queueMode.includes('consumer')) {
-    //   consumerInstance.registerHandler({
-    //     messageName: 'message',
-    //     handler: (message) => {
-    //       console.log('message', message);
-    //     },
-    //   });
-    // }
-  }
-
-  // add async startup
+export class MessagingModule {
   static forRoot(options: MessagingModuleOptions) {
     const url = options.connectionUrl.split('redis://')[1];
     const host = url.split(':')[0];
@@ -38,6 +19,7 @@ export class MessagingModule implements OnModuleInit {
 
     const providers = [];
     const exports = [];
+    const imports = [];
 
     if (options.mode.includes('producer')) {
       providers.push({
@@ -49,27 +31,13 @@ export class MessagingModule implements OnModuleInit {
     }
 
     if (options.mode.includes('consumer')) {
-      providers.push({
-        provide: MessageConsumer,
-        useClass: BullMessageConsumer,
-      });
-      providers.push({
-        provide: 'INTERNAL_TOKEN_QUEUE_CONSUMER',
-        useValue: BullMessageConsumer,
-      });
-
-      exports.push(MessageConsumer);
+      imports.push(MessagingConsumerModule.forRoot());
     }
-
-    providers.push({
-      provide: 'QUEUE_MODE',
-      useValue: options.mode,
-    });
 
     return {
       module: MessagingModule,
       imports: [
-        DiscoveryModule,
+        ...imports,
         BullModule.forRoot({
           redis: {
             host,
