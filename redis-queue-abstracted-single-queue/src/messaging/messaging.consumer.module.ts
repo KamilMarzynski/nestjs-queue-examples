@@ -1,7 +1,9 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { BullMessageConsumer } from './bull/bull.queue.consumer';
 import { MessageConsumer } from './message.consumer';
-import { DiscoveryModule } from '@nestjs/core';
+import { DiscoveryModule, DiscoveryService } from '@nestjs/core';
+import { MESSAGE_LISTENER_METADATA } from './messaging.listener.decorator';
+import { MessageHandler } from './message.handler';
 
 export type MessagingModuleOptions = {
   mode: ('producer' | 'consumer')[];
@@ -10,17 +12,38 @@ export type MessagingModuleOptions = {
 
 @Module({})
 export class MessagingConsumerModule implements OnModuleInit {
-  constructor(private readonly messageConsumer: MessageConsumer) {}
+  constructor(
+    private readonly discoveryService: DiscoveryService,
+    private readonly messageConsumer: MessageConsumer,
+  ) {}
 
   onModuleInit() {
-    console.log('MessagingConsumerModule has been initialized.');
+    const providers = this.discoveryService.getProviders();
+    const messageListeners = providers
+      .map((provider) => {
+        const type =
+          provider.metatype &&
+          Reflect.getMetadata(MESSAGE_LISTENER_METADATA, provider.metatype);
+        if (type) {
+          return {
+            instance: provider.instance,
+            name: type,
+          };
+        }
+      })
+      .filter(Boolean);
+    if (messageListeners.length === 0) {
+      return;
+    }
 
-    this.messageConsumer.registerHandler({
-      messageName: 'message',
-      handler: (message) => {
-        console.log('message', message);
+    messageListeners.forEach(
+      (messageListener: { name: string; instance: MessageHandler }) => {
+        this.messageConsumer.registerHandler({
+          messageName: messageListener.name,
+          handler: messageListener.instance,
+        });
       },
-    });
+    );
   }
 
   static forRoot() {
