@@ -11,6 +11,8 @@ services:
       - ./src:/app/src
     depends_on:
       - redis
+    env_file:
+      - .env.producer
 
   consumer:
     container_name: consumer
@@ -21,6 +23,8 @@ services:
       - ./src:/app/src
     depends_on:
       - redis
+    env_file:
+      - .env.consumer
 
   redis:
     container_name: redis

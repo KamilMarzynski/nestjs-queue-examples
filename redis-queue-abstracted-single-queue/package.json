@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@nestjs/bull": "^10.0.1",
+    "@nestjs/config": "^3.1.1",
     "@nestjs/core": "^9.4.3",
     "@nestjs/microservices": "^9.0.0",
     "@nestjs/platform-express": "^9.0.0",
