@@ -58,48 +58,80 @@ export class MessagingModule {
     inject: any[];
     imports?: any[];
   }) {
-    // doing this is not particullary nice, how to do it better?
+    const opts = await this.resolveAsyncOptions(options);
+
+    const providers = this.getProviders(opts);
+    const exports = this.getExports(opts);
+    const imports = this.getImports(opts);
+
+    return {
+      module: MessagingModule,
+      imports: [...(options?.imports ?? []), ...imports],
+      providers: [...providers],
+      exports: [...exports],
+    };
+  }
+
+  // TODO: find way to inject async providers to BullModule
+  // or write custom bull queue to inject into consumer and queue service as provider
+  // (provider does not have probles with async injects)
+  private static async resolveAsyncOptions(options: {
+    useFactory: (...args: any) => Promise<MessagingModuleOptions>;
+    inject: any[];
+    imports?: any[];
+  }) {
     const resolveInjects = options.inject.map((inject) => {
       return new inject();
     });
-    const opts = await options.useFactory(...resolveInjects);
-    const url = opts.connectionUrl.split('redis://')[1];
+    return await options.useFactory(...resolveInjects);
+  }
+
+  private static fromOptionsToRedisConfig(options: MessagingModuleOptions) {
+    const url = options.connectionUrl.split('redis://')[1];
     const host = url.split(':')[0];
     const port = url.split(':')[1];
 
-    const providers = [];
-    const exports = [];
-    const imports = options.imports || [];
+    return {
+      host,
+      port: parseInt(port, 10),
+    };
+  }
 
-    if (opts.mode.includes('producer')) {
+  private static getProviders(options: MessagingModuleOptions) {
+    const providers = [];
+    if (options.mode.includes('producer')) {
       providers.push({
         provide: MessagingService,
         useClass: BullMessagingService,
       });
+    }
+    return providers;
+  }
 
+  private static getExports(options: MessagingModuleOptions) {
+    const exports = [];
+    if (options.mode.includes('producer')) {
       exports.push(MessagingService);
     }
+    return exports;
+  }
 
-    if (opts.mode.includes('consumer')) {
+  private static getImports(options: MessagingModuleOptions) {
+    const { host, port } = this.fromOptionsToRedisConfig(options);
+    const imports = [
+      BullModule.forRoot({
+        redis: {
+          host,
+          port,
+        },
+      }),
+      BullModule.registerQueue({
+        name: QUEUE_NAME,
+      }),
+    ];
+    if (options.mode.includes('consumer')) {
       imports.push(MessagingConsumerModule.forRoot());
     }
-
-    return {
-      module: MessagingModule,
-      imports: [
-        ...imports,
-        BullModule.forRoot({
-          redis: {
-            host,
-            port: parseInt(port, 10),
-          },
-        }),
-        BullModule.registerQueue({
-          name: QUEUE_NAME,
-        }),
-      ],
-      providers: [...providers],
-      exports: [...exports],
-    };
+    return imports;
   }
 }
