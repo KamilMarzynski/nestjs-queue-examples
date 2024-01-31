@@ -13,6 +13,7 @@ import { MessagingModule } from '../messaging/messaging.module';
         return {
           mode: [configService.get('MODE')],
           connectionUrl: configService.get('QUEUE_URL'),
+          queueName: configService.get('QUEUE_NAME'),
         };
       },
     }),

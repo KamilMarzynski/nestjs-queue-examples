@@ -8,6 +8,7 @@ import { TestMessageHandlerV2 } from './test.message.handlerV2';
     MessagingModule.forRoot({
       mode: ['consumer'],
       connectionUrl: 'redis://redis:6379',
+      queueName: 'test-queue',
     }),
   ],
   providers: [TestMessageHandler, TestMessageHandlerV2],

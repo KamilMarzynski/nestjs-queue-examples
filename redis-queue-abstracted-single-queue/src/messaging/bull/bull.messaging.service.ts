@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Queue } from 'bull';
+import { Queue } from 'bullmq';
 import { MessagingService } from '../messaging.service';
 import { Message } from '../types';
 
@@ -10,9 +10,6 @@ export class BullMessagingService extends MessagingService {
   }
   async add<T>(message: Message<T>) {
     console.log('Adding message to queue', message);
-    await this.queue.add({
-      name: message.name,
-      data: message.data,
-    });
+    await this.queue.add(message.name, message.data);
   }
 }

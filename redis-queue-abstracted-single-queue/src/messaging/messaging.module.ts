@@ -4,11 +4,15 @@ import { QUEUE_NAME } from '../common/constants';
 import { BullMessagingService } from './bull/bull.messaging.service';
 import { MessagingService } from './messaging.service';
 import { MessagingConsumerModule } from './messaging.consumer.module';
+import { Queue } from 'bullmq';
 
 export type MessagingModuleOptions = {
   mode: ('producer' | 'consumer')[];
   connectionUrl: `redis://${string}:${string}`;
+  queueName: string;
 };
+
+const QUEUE_OPTIONS = Symbol.for('QUEUE_OPTIONS');
 
 @Module({})
 export class MessagingModule {
@@ -58,30 +62,30 @@ export class MessagingModule {
     inject: any[];
     imports?: any[];
   }) {
-    const opts = await this.resolveAsyncOptions(options);
+    const asyncProviders = await this.resolveAsyncProviders(options);
 
-    const providers = this.getProviders(opts);
-    const exports = this.getExports(opts);
-    const imports = this.getImports(opts);
+    const providers = this.getProviders();
 
     return {
       module: MessagingModule,
-      imports: [...(options?.imports ?? []), ...imports],
-      providers: [...providers],
-      exports: [...exports],
+      imports: [...(options?.imports ?? [])],
+      providers: [...asyncProviders, ...providers],
+      exports: [QUEUE_OPTIONS, MessagingService],
     };
   }
 
-  // TODO: change this to method that provides only QUEUE_OPTIONS
-  private static async resolveAsyncOptions(options: {
+  private static async resolveAsyncProviders(options: {
     useFactory: (...args: any) => Promise<MessagingModuleOptions>;
     inject: any[];
     imports?: any[];
   }) {
-    const resolveInjects = options.inject.map((inject) => {
-      return new inject();
-    });
-    return await options.useFactory(...resolveInjects);
+    return [
+      {
+        provide: QUEUE_OPTIONS,
+        useFactory: options.useFactory,
+        inject: options.inject,
+      },
+    ];
   }
 
   private static fromOptionsToRedisConfig(options: MessagingModuleOptions) {
@@ -95,45 +99,30 @@ export class MessagingModule {
     };
   }
 
-  private static getProviders(options: MessagingModuleOptions) {
+  private static getProviders() {
     const providers = [];
-    if (options.mode.includes('producer')) {
-      providers.push({
-        provide: MessagingService,
-        // TODO: change this to useFactory
-        // and craete manually bull queue
-        // inject here QUEUE_OPTIONS from async provider
-        useClass: BullMessagingService,
-      });
-    }
+    providers.push({
+      provide: MessagingService,
+      useFactory: (options: MessagingModuleOptions) => {
+        const config = this.fromOptionsToRedisConfig(options);
+        const queue = new Queue(options.queueName, {
+          connection: {
+            host: config.host,
+            port: config.port,
+          },
+        });
+        return new BullMessagingService(queue);
+      },
+      inject: [QUEUE_OPTIONS],
+    });
     return providers;
   }
 
-  private static getExports(options: MessagingModuleOptions) {
-    const exports = [];
-    if (options.mode.includes('producer')) {
-      exports.push(MessagingService);
-    }
-    return exports;
-  }
-
-  private static getImports(options: MessagingModuleOptions) {
-    const { host, port } = this.fromOptionsToRedisConfig(options);
-    // TODO: remove BullModule entirely from this module
-    const imports = [
-      BullModule.forRoot({
-        redis: {
-          host,
-          port,
-        },
-      }),
-      BullModule.registerQueue({
-        name: QUEUE_NAME,
-      }),
-    ];
-    if (options.mode.includes('consumer')) {
-      imports.push(MessagingConsumerModule.forRoot());
-    }
-    return imports;
-  }
+  // private static getImports(options: MessagingModuleOptions) {
+  //   const imports = [];
+  //   if (options.mode.includes('consumer')) {
+  //     imports.push(MessagingConsumerModule.forRoot());
+  //   }
+  //   return imports;
+  // }
 }
