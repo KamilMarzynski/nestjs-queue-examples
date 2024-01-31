@@ -72,9 +72,7 @@ export class MessagingModule {
     };
   }
 
-  // TODO: find way to inject async providers to BullModule
-  // or write custom bull queue to inject into consumer and queue service as provider
-  // (provider does not have probles with async injects)
+  // TODO: change this to method that provides only QUEUE_OPTIONS
   private static async resolveAsyncOptions(options: {
     useFactory: (...args: any) => Promise<MessagingModuleOptions>;
     inject: any[];
@@ -102,6 +100,9 @@ export class MessagingModule {
     if (options.mode.includes('producer')) {
       providers.push({
         provide: MessagingService,
+        // TODO: change this to useFactory
+        // and craete manually bull queue
+        // inject here QUEUE_OPTIONS from async provider
         useClass: BullMessagingService,
       });
     }
@@ -118,6 +119,7 @@ export class MessagingModule {
 
   private static getImports(options: MessagingModuleOptions) {
     const { host, port } = this.fromOptionsToRedisConfig(options);
+    // TODO: remove BullModule entirely from this module
     const imports = [
       BullModule.forRoot({
         redis: {
