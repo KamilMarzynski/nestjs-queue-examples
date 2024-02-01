@@ -14,17 +14,17 @@ services:
     env_file:
       - .env.producer
 
-  # consumer:
-  #   container_name: consumer
-  #   command: npm run start:consumer
-  #   build:
-  #     dockerfile: Dockerfile
-  #   volumes:
-  #     - ./src:/app/src
-  #   depends_on:
-  #     - redis
-  #   env_file:
-  #     - .env.consumer
+  consumer:
+    container_name: consumer
+    command: npm run start:consumer
+    build:
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      - redis
+    env_file:
+      - .env.consumer
 
   redis:
     container_name: redis
