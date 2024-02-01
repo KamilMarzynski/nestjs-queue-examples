@@ -1,40 +1,46 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module, OnModuleInit, Inject } from '@nestjs/common';
 import { Worker } from 'bullmq';
-import { BullMessageConsumer } from './bull/bull.queue.consumer';
 import { MessageConsumer } from './message.consumer';
 import { DiscoveryModule, DiscoveryService } from '@nestjs/core';
 import { MESSAGE_LISTENER_METADATA } from './messaging.listener.decorator';
 import { MessageHandler } from './message.handler';
-import { QUEUE_NAME } from 'src/common/constants';
 
 export type MessagingModuleOptions = {
   mode: ('producer' | 'consumer')[];
   connectionUrl: `redis://${string}:${string}`;
+  queueName: string;
 };
+
+const CONSUMER_QUEUE_OPTIONS = Symbol.for('CONSUMER_QUEUE_OPTIONS');
 
 @Module({})
 export class MessagingConsumerModule implements OnModuleInit {
   constructor(
     private readonly discoveryService: DiscoveryService,
     private readonly messageConsumer: MessageConsumer,
+    @Inject(CONSUMER_QUEUE_OPTIONS)
+    private readonly queueOptions: MessagingModuleOptions,
   ) {}
 
-  // TODO: based on QUEUE_OPTIONS instantiate here proper worker if needed, e.g. bull worker
-  // then register all message listeners
-  // and next start listening for messages
   onModuleInit() {
+    if (!this.queueOptions.mode.includes('consumer')) {
+      return;
+    }
+
+    const redisConfig = this.fromOptionsToRedisConfig(this.queueOptions);
+
     const worker = new Worker(
-      QUEUE_NAME,
+      this.queueOptions.queueName,
       async (job) => {
-        console.log('Received message', job.data);
-        await this.messageConsumer.processMessageOnHandlers(job.data);
+        console.log('Received message', { name: job.name, data: job.data });
+        await this.messageConsumer.processMessageOnHandlers({
+          name: job.name,
+          data: job.data,
+        });
       },
       {
         autorun: false,
-        connection: {
-          host: 'localhost',
-          port: 6379,
-        },
+        connection: redisConfig,
       },
     );
     const providers = this.discoveryService.getProviders();
@@ -67,23 +73,56 @@ export class MessagingConsumerModule implements OnModuleInit {
     worker.run();
   }
 
-  // TODO add forRootAsync that will use injected QUEUE_OPTIONS to bull worker
-  // provide proper queue consumer
-  // might not need to use useFactory
-  static forRoot() {
-    const providers = [
-      {
-        provide: MessageConsumer,
-        useClass: BullMessageConsumer,
-      },
-    ];
-    const exports = [MessageConsumer];
+  private fromOptionsToRedisConfig(options: MessagingModuleOptions) {
+    const url = options.connectionUrl.split('redis://')[1];
+    const host = url.split(':')[0];
+    const port = url.split(':')[1];
+
+    return {
+      host,
+      port: parseInt(port, 10),
+    };
+  }
+
+  static forRoot(options: MessagingModuleOptions) {
+    return {
+      module: MessagingConsumerModule,
+      providers: [
+        MessageConsumer,
+        {
+          provide: CONSUMER_QUEUE_OPTIONS,
+          useValue: options,
+        },
+      ],
+      imports: [DiscoveryModule],
+    };
+  }
+
+  static async forRootAsync(options: {
+    useFactory: (...args: any) => Promise<MessagingModuleOptions>;
+    inject: any[];
+    imports?: any[];
+  }) {
+    const asyncProviders = await this.resolveAsyncProviders(options);
 
     return {
       module: MessagingConsumerModule,
-      imports: [DiscoveryModule],
-      providers: [...providers],
-      exports: [...exports],
+      providers: [MessageConsumer, ...asyncProviders],
+      imports: [...options.imports, DiscoveryModule],
     };
+  }
+
+  private static async resolveAsyncProviders(options: {
+    useFactory: (...args: any) => Promise<MessagingModuleOptions>;
+    inject: any[];
+    imports?: any[];
+  }) {
+    return [
+      {
+        provide: CONSUMER_QUEUE_OPTIONS,
+        useFactory: options.useFactory,
+        inject: options.inject,
+      },
+    ];
   }
 }
