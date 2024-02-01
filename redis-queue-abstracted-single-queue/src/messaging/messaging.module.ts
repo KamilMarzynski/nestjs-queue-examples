@@ -1,6 +1,5 @@
 import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
-import { QUEUE_NAME } from '../common/constants';
 import { BullMessagingService } from './bull/bull.messaging.service';
 import { MessagingService } from './messaging.service';
 import { MessagingConsumerModule } from './messaging.consumer.module';
@@ -12,7 +11,7 @@ export type MessagingModuleOptions = {
   queueName: string;
 };
 
-const QUEUE_OPTIONS = Symbol.for('QUEUE_OPTIONS');
+export const QUEUE_OPTIONS = Symbol.for('QUEUE_OPTIONS');
 
 @Module({})
 export class MessagingModule {
@@ -34,9 +33,7 @@ export class MessagingModule {
       exports.push(MessagingService);
     }
 
-    if (options.mode.includes('consumer')) {
-      imports.push(MessagingConsumerModule.forRoot());
-    }
+    imports.push(MessagingConsumerModule.forRoot(options));
 
     return {
       module: MessagingModule,
@@ -49,7 +46,7 @@ export class MessagingModule {
           },
         }),
         BullModule.registerQueue({
-          name: QUEUE_NAME,
+          name: options.queueName,
         }),
       ],
       providers: [...providers],
@@ -68,7 +65,10 @@ export class MessagingModule {
 
     return {
       module: MessagingModule,
-      imports: [...(options?.imports ?? [])],
+      imports: [
+        ...(options?.imports ?? []),
+        MessagingConsumerModule.forRootAsync(options),
+      ],
       providers: [...asyncProviders, ...providers],
       exports: [QUEUE_OPTIONS, MessagingService],
     };
@@ -117,12 +117,4 @@ export class MessagingModule {
     });
     return providers;
   }
-
-  // private static getImports(options: MessagingModuleOptions) {
-  //   const imports = [];
-  //   if (options.mode.includes('consumer')) {
-  //     imports.push(MessagingConsumerModule.forRoot());
-  //   }
-  //   return imports;
-  // }
 }
