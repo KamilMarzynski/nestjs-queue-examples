@@ -1,4 +1,3 @@
-import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { BullMessagingService } from './bull/bull.messaging.service';
 import { MessagingService } from './messaging.service';
