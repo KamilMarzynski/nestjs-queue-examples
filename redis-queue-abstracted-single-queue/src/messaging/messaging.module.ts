@@ -16,41 +16,13 @@ export const QUEUE_OPTIONS = Symbol.for('QUEUE_OPTIONS');
 @Module({})
 export class MessagingModule {
   static forRoot(options: MessagingModuleOptions) {
-    const url = options.connectionUrl.split('redis://')[1];
-    const host = url.split(':')[0];
-    const port = url.split(':')[1];
-
-    const providers = [];
-    const exports = [];
-    const imports = [];
-
-    if (options.mode.includes('producer')) {
-      providers.push({
-        provide: MessagingService,
-        useClass: BullMessagingService,
-      });
-
-      exports.push(MessagingService);
-    }
-
-    imports.push(MessagingConsumerModule.forRoot(options));
+    const providers = this.getProviders(options);
 
     return {
       module: MessagingModule,
-      imports: [
-        ...imports,
-        BullModule.forRoot({
-          redis: {
-            host,
-            port: parseInt(port, 10),
-          },
-        }),
-        BullModule.registerQueue({
-          name: options.queueName,
-        }),
-      ],
+      imports: [MessagingConsumerModule.forRoot(options)],
       providers: [...providers],
-      exports: [...exports],
+      exports: [MessagingService],
     };
   }
 
@@ -61,17 +33,34 @@ export class MessagingModule {
   }) {
     const asyncProviders = await this.resolveAsyncProviders(options);
 
-    const providers = this.getProviders();
-
     return {
       module: MessagingModule,
       imports: [
         ...(options?.imports ?? []),
         MessagingConsumerModule.forRootAsync(options),
       ],
-      providers: [...asyncProviders, ...providers],
+      providers: [...asyncProviders],
       exports: [QUEUE_OPTIONS, MessagingService],
     };
+  }
+
+  private static getProviders(options: MessagingModuleOptions) {
+    const providers = [];
+    const config = this.fromOptionsToRedisConfig(options);
+
+    const queue = new Queue(options.queueName, {
+      connection: {
+        host: config.host,
+        port: config.port,
+      },
+    });
+    const bullMessagingService = new BullMessagingService(queue);
+
+    providers.push({
+      provide: MessagingService,
+      useExisting: bullMessagingService,
+    });
+    return providers;
   }
 
   private static async resolveAsyncProviders(options: {
@@ -79,13 +68,36 @@ export class MessagingModule {
     inject: any[];
     imports?: any[];
   }) {
+    const optionsProvider = await this.resolveAsyncOptions(options);
     return [
+      optionsProvider,
       {
-        provide: QUEUE_OPTIONS,
-        useFactory: options.useFactory,
-        inject: options.inject,
+        provide: MessagingService,
+        useFactory: (options: MessagingModuleOptions) => {
+          const config = this.fromOptionsToRedisConfig(options);
+          const queue = new Queue(options.queueName, {
+            connection: {
+              host: config.host,
+              port: config.port,
+            },
+          });
+          return new BullMessagingService(queue);
+        },
+        inject: [QUEUE_OPTIONS],
       },
     ];
+  }
+
+  private static async resolveAsyncOptions(options: {
+    useFactory: (...args: any) => Promise<MessagingModuleOptions>;
+    inject: any[];
+    imports?: any[];
+  }) {
+    return {
+      provide: QUEUE_OPTIONS,
+      useFactory: options.useFactory,
+      inject: options.inject,
+    };
   }
 
   private static fromOptionsToRedisConfig(options: MessagingModuleOptions) {
@@ -97,24 +109,5 @@ export class MessagingModule {
       host,
       port: parseInt(port, 10),
     };
-  }
-
-  private static getProviders() {
-    const providers = [];
-    providers.push({
-      provide: MessagingService,
-      useFactory: (options: MessagingModuleOptions) => {
-        const config = this.fromOptionsToRedisConfig(options);
-        const queue = new Queue(options.queueName, {
-          connection: {
-            host: config.host,
-            port: config.port,
-          },
-        });
-        return new BullMessagingService(queue);
-      },
-      inject: [QUEUE_OPTIONS],
-    });
-    return providers;
   }
 }

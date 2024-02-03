@@ -73,17 +73,6 @@ export class MessagingConsumerModule implements OnModuleInit {
     worker.run();
   }
 
-  private fromOptionsToRedisConfig(options: MessagingModuleOptions) {
-    const url = options.connectionUrl.split('redis://')[1];
-    const host = url.split(':')[0];
-    const port = url.split(':')[1];
-
-    return {
-      host,
-      port: parseInt(port, 10),
-    };
-  }
-
   static forRoot(options: MessagingModuleOptions) {
     return {
       module: MessagingConsumerModule,
@@ -109,6 +98,17 @@ export class MessagingConsumerModule implements OnModuleInit {
       module: MessagingConsumerModule,
       providers: [MessageConsumer, ...asyncProviders],
       imports: [...options.imports, DiscoveryModule],
+    };
+  }
+
+  private fromOptionsToRedisConfig(options: MessagingModuleOptions) {
+    const url = options.connectionUrl.split('redis://')[1];
+    const host = url.split(':')[0];
+    const port = url.split(':')[1];
+
+    return {
+      host,
+      port: parseInt(port, 10),
     };
   }
 
